@@ -5,10 +5,14 @@ const sendMail = async ({ email, subject, html }) => {
     host: "smtp.gmail.com",
     post: 465,
     auth: {
-      user: "",
-      pass: "",
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASSWORD,
     },
   });
+
+  console.log(process.env.SMTP_USER);
+  console.log(process.env.SMTP_PASSWORD);
+
   await transport.sendMail({
     from: "",
     to: email,

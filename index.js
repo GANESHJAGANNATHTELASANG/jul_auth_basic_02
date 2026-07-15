@@ -27,6 +27,8 @@ redisClient
     console.log(`error in connecting redis ${error}`);
   });
 
+// ---------redis code-----------//
+
 const app = express();
 app.use(express.json()); // ✅ This is required
 
