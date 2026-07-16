@@ -1,14 +1,12 @@
 import TryCatch from "../middlewares/TryCatch.js";
 import sanitize from "mongo-sanitize";
-import { registerSchema } from "../config/zod.js";
+import { loginSchema, registerSchema } from "../config/zod.js";
 import { redisClient } from "../index.js";
 import { User } from "../models/user.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import sendMail from "../config/sendMail.js";
-import { getVerifyEmailHtml } from "../config/html.js";
-import { json } from "zod";
-import { TbDeviceIpadHorizontalCheck } from "react-icons/tb";
+import { getOtpHtml, getVerifyEmailHtml } from "../config/html.js";
 
 export const register = TryCatch(async (req, res) => {
   const saniti = sanitize(req.body);
@@ -107,5 +105,72 @@ export const verifyUser = TryCatch(async (req, res) => {
     password: userData.password,
   });
 
-  return res.status(400).json({ message: "the user acc is created" });
+  return res.status(201).json({ message: "the user acc is created" });
+});
+
+export const loginUser = TryCatch(async (req, res) => {
+  const saniti = sanitize(req.body);
+  const validation = loginSchema.safeParse(saniti);
+
+  if (!validation.success) {
+    const zodError = validation.error;
+    const firstErrorMesssage = "validation error";
+    let allError = [];
+
+    if (zodError?.issues && Array.isArray(zodError.issues)) {
+      allError = zodError.issues.map((issue) => ({
+        feild: issue.path ? issue.path.join(".") : "unkonow",
+        message: issue.message || "validation error",
+        code: issue.code,
+      }));
+    }
+    return res.status(400).json({
+      message: firstErrorMesssage,
+      error: allError,
+    });
+  }
+
+  const { email, password } = req.body;
+
+  const rateLimit = `login-rate-limit${req.ip}:${email}`;
+
+  if (await redisClient.get(rateLimit)) {
+    return res
+      .status(400)
+      .json({ message: "wait a min u hit the max time for verification" });
+  }
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    return res.status(400).json({
+      message: "the user not found and credentials are not found = E",
+    });
+  }
+
+  const checkPass = bcrypt.compare(user.password, password);
+
+  if (!checkPass) {
+    return res
+      .status(400)
+      .json({ message: "the credentials are not correct = P" });
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  const otpKey = `otp:${email}`;
+
+  await redisClient.set(otpKey, JSON.parse(otp), { EX: "300" });
+
+  const subject = "the otp verification plx give us ur otp ";
+
+  const html = getOtpHtml({ email, otp });
+
+  await sendMail({ email, subject, html });
+
+  await redisClient.set(rateLimit, "true", { EX: 60 });
+
+  return res
+    .status(200)
+    .json({ message: "the mail is send for otp verification" });
 });
