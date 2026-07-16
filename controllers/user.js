@@ -7,6 +7,8 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import sendMail from "../config/sendMail.js";
 import { getVerifyEmailHtml } from "../config/html.js";
+import { json } from "zod";
+import { TbDeviceIpadHorizontalCheck } from "react-icons/tb";
 
 export const register = TryCatch(async (req, res) => {
   const saniti = sanitize(req.body);
@@ -48,7 +50,7 @@ export const register = TryCatch(async (req, res) => {
     });
   }
 
-  const hashPassword = bcrypt.hash(password, 12);
+  const hashPassword = await bcrypt.hash(password, 12);
 
   const verifyToken = crypto.randomBytes(32).toString("hex");
 
@@ -67,5 +69,43 @@ export const register = TryCatch(async (req, res) => {
 
   await sendMail({ email, subject, html });
 
+  await redisClient.set(rateLimit, "true", { EX: 60 });
+
   return res.status(200).json({ message: "done register" });
+});
+
+export const verifyUser = TryCatch(async (req, res) => {
+  const { token } = req.params;
+
+  if (!token) {
+    return res.status(400).json({ message: "the token is not there" });
+  }
+
+  const verifyToken = `verify:${token}`;
+
+  const userDataJson = await redisClient.get(verifyToken);
+
+  if (!userDataJson) {
+    return res
+      .status(400)
+      .json({ message: "the verification link is expired plz try again" });
+  }
+
+  await redisClient.del(verifyToken);
+
+  const userData = JSON.parse(userDataJson);
+
+  const existingUser = await User.findOne({ email: userData.email });
+
+  if (existingUser) {
+    return res.status(400).json({ message: "the user already exist" });
+  }
+
+  const newUser = await User.create({
+    name: userData.name,
+    email: userData.email,
+    password: userData.password,
+  });
+
+  return res.status(400).json({ message: "the user acc is created" });
 });
