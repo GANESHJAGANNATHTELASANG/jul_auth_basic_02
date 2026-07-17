@@ -7,6 +7,7 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import sendMail from "../config/sendMail.js";
 import { getOtpHtml, getVerifyEmailHtml } from "../config/html.js";
+import { genereateToken } from "../config/generateToken.js";
 
 export const register = TryCatch(async (req, res) => {
   const saniti = sanitize(req.body);
@@ -158,7 +159,7 @@ export const loginUser = TryCatch(async (req, res) => {
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-  const otpKey = `otp:${email}`;
+  const otpKey = `otp${email}`;
 
   await redisClient.set(otpKey, JSON.parse(otp), { EX: "300" });
 
@@ -174,3 +175,36 @@ export const loginUser = TryCatch(async (req, res) => {
     .status(200)
     .json({ message: "the mail is send for otp verification" });
 });
+
+export const verifyOtp = async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    return res
+      .status(400)
+      .json({ message: "PLZ FILL THE REQUIRED INFORMATION" });
+  }
+
+  const otpKey = `otp${email}`;
+
+  const storedOtpString = await redisClient.get(otpKey);
+
+  const storedOtp = JSON.parse(storedOtpString);
+  const webOtp = JSON.parse(otp);
+
+  console.log("storedOtpString:", storedOtpString, typeof storedOtpString);
+  console.log("storedOtp:", storedOtp, typeof storedOtp);
+  console.log("otp:", otp, typeof otp);
+
+  if (webOtp !== storedOtp) {
+    return res
+      .status(400)
+      .json({ message: "the otp is wrong, get new otp and try again" });
+  }
+
+  let user = await User.findOne({ email });
+
+  const tokenData = await genereateToken(user._id, res);
+
+  return res.json({ message: `WELCOME ${user.name}.  FRO OUR WEBSITE ` });
+};
