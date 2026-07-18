@@ -5,7 +5,6 @@ import { User } from "../models/user.js";
 export const isAuth = async (req, res, next) => {
   try {
     const token = req.cookies.accessToken;
-    console.log(token);
 
     if (!token) {
       return res
@@ -27,17 +26,14 @@ export const isAuth = async (req, res, next) => {
     }
 
     const user = await User.findById(decoded.id).select("-password");
-    console.log(user);
 
     if (!user) {
       return res.status(400).json({ message: "user not found " });
     }
 
     await redisClient.setEx(`user${user._id}`, 3600, JSON.stringify(user));
-    console.log(user);
 
     req.user = user;
-    console.log(user);
     next();
   } catch (error) {
     return res.status(500).json({ message: error.message });

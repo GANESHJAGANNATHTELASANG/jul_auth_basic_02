@@ -7,7 +7,12 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import sendMail from "../config/sendMail.js";
 import { getOtpHtml, getVerifyEmailHtml } from "../config/html.js";
-import { genereateToken } from "../config/generateToken.js";
+import {
+  generateAccessToken,
+  genereateToken,
+  revokeRefreshToken,
+  verifyRefreshToken,
+} from "../config/generateToken.js";
 
 export const register = TryCatch(async (req, res) => {
   const saniti = sanitize(req.body);
@@ -200,9 +205,9 @@ export const verifyOtp = async (req, res) => {
   }
 
   let user = await User.findOne({ email });
+  console.log(user);
 
   const tokenData = await genereateToken(user._id, res);
-  console.log(tokenData);
 
   return res.json({
     message: `WELCOME ${user.name}.  FRO OUR WEBSITE `,
@@ -216,3 +221,40 @@ export const myProfile = TryCatch(async (req, res) => {
   console.log(user);
   res.json(user);
 });
+
+export const refreshToken = async (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+
+  if (!refreshToken) {
+    return res
+      .status(400)
+      .json({ message: "the refresh token is not there plz login again " });
+  }
+
+  const decode = await verifyRefreshToken(refreshToken);
+
+  if (!decode) {
+    return res
+      .status(401)
+      .json({ message: "the refresh token is expired so login again" });
+  }
+
+  console.log(decode);
+
+  generateAccessToken(decode.id, res);
+
+  return res.status(200).json({ message: "refreshed the accessToken" });
+};
+
+export const logoutUser = async (req, res) => {
+  const userId = req.user._id;
+  console.log(userId);
+  await revokeRefreshToken(userId);
+
+  res.clearCookie("accessToken");
+  res.clearCookie("refreshToken");
+
+  await redisClient.del(`user${userId}`);
+
+  return res.json({ message: "the user is lougout successfuly " });
+};
