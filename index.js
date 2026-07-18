@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import connectDB from "./config/database.js";
 import { createClient } from "redis";
+import cookieParser from "cookie-parser";
 
 dotenv.config();
 await connectDB();
@@ -30,7 +31,10 @@ redisClient
 // ---------redis code-----------//
 
 const app = express();
+
+//middleware
 app.use(express.json()); // ✅ This is required
+app.use(cookieParser());
 
 // router is importing
 import userRoutes from "./router/user.js";

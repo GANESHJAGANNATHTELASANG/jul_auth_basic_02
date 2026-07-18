@@ -99,7 +99,8 @@ export const verifyUser = TryCatch(async (req, res) => {
   if (existingUser) {
     return res.status(400).json({ message: "the user already exist" });
   }
-
+  console.log(userData.name);
+  console.log(userData.email);
   const newUser = await User.create({
     name: userData.name,
     email: userData.email,
@@ -192,10 +193,6 @@ export const verifyOtp = async (req, res) => {
   const storedOtp = JSON.parse(storedOtpString);
   const webOtp = JSON.parse(otp);
 
-  console.log("storedOtpString:", storedOtpString, typeof storedOtpString);
-  console.log("storedOtp:", storedOtp, typeof storedOtp);
-  console.log("otp:", otp, typeof otp);
-
   if (webOtp !== storedOtp) {
     return res
       .status(400)
@@ -205,6 +202,17 @@ export const verifyOtp = async (req, res) => {
   let user = await User.findOne({ email });
 
   const tokenData = await genereateToken(user._id, res);
+  console.log(tokenData);
 
-  return res.json({ message: `WELCOME ${user.name}.  FRO OUR WEBSITE ` });
+  return res.json({
+    message: `WELCOME ${user.name}.  FRO OUR WEBSITE `,
+    user,
+    tokenData,
+  });
 };
+
+export const myProfile = TryCatch(async (req, res) => {
+  const user = req.user;
+  console.log(user);
+  res.json(user);
+});
