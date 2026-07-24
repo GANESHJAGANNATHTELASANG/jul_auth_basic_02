@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { redisClient } from "../index.js";
 import { refreshToken } from "../controllers/user.js";
+import { generateCSRFToken, revokeCSRFToken } from "./csrfMiddleware.js";
 
 export const genereateToken = async (id, res) => {
   const accessToken = jwt.sign({ id }, process.env.ACCESSTOKEN_SEC, {
@@ -15,20 +16,22 @@ export const genereateToken = async (id, res) => {
   await redisClient.setEx(refreshTokenKey, 7 * 24 * 60 * 60, refreshToken);
 
   res.cookie("accessToken", accessToken, {
-    httpOnly: false,
-    secure: false,
+    httpOnly: true,
+    secure: true,
     sameSite: "none",
     maxAge: 1 * 60 * 1000,
   });
 
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: false,
+    secure: true,
     sameSite: "none",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 
-  return { accessToken, refreshToken };
+  const csrfToken = await generateCSRFToken(id, res);
+
+  return { accessToken, refreshToken, csrfToken };
 };
 
 export const verifyRefreshToken = async (refreshToken) => {
@@ -59,8 +62,8 @@ export const generateAccessToken = async (id, res) => {
   console.log(ver);
 
   res.cookie("accessToken", accessToken, {
-    httpOnly: false,
-    secure: false,
+    httpOnly: true,
+    secure: true,
     sameSite: "none",
     maxAge: 1 * 60 * 1000,
   });
@@ -68,4 +71,5 @@ export const generateAccessToken = async (id, res) => {
 
 export const revokeRefreshToken = async (userId) => {
   await redisClient.del(`refresh_token${userId}`);
+  await revokeCSRFToken(userId);
 };

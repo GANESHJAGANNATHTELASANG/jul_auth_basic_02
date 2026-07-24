@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import connectDB from "./config/database.js";
 import { createClient } from "redis";
 import cookieParser from "cookie-parser";
+import cors from "cors";
 
 dotenv.config();
 await connectDB();
@@ -35,6 +36,13 @@ const app = express();
 //middleware
 app.use(express.json()); // ✅ This is required
 app.use(cookieParser());
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  }),
+);
 
 // router is importing
 import userRoutes from "./router/user.js";

@@ -13,6 +13,7 @@ import {
   revokeRefreshToken,
   verifyRefreshToken,
 } from "../config/generateToken.js";
+import { generateCSRFToken } from "../config/csrfMiddleware.js";
 
 export const register = TryCatch(async (req, res) => {
   const saniti = sanitize(req.body);
@@ -104,8 +105,7 @@ export const verifyUser = TryCatch(async (req, res) => {
   if (existingUser) {
     return res.status(400).json({ message: "the user already exist" });
   }
-  console.log(userData.name);
-  console.log(userData.email);
+
   const newUser = await User.create({
     name: userData.name,
     email: userData.email,
@@ -205,7 +205,6 @@ export const verifyOtp = async (req, res) => {
   }
 
   let user = await User.findOne({ email });
-  console.log(user);
 
   const tokenData = await genereateToken(user._id, res);
 
@@ -218,7 +217,6 @@ export const verifyOtp = async (req, res) => {
 
 export const myProfile = TryCatch(async (req, res) => {
   const user = req.user;
-  console.log(user);
   res.json(user);
 });
 
@@ -239,8 +237,6 @@ export const refreshToken = async (req, res) => {
       .json({ message: "the refresh token is expired so login again" });
   }
 
-  console.log(decode);
-
   generateAccessToken(decode.id, res);
 
   return res.status(200).json({ message: "refreshed the accessToken" });
@@ -253,8 +249,19 @@ export const logoutUser = async (req, res) => {
 
   res.clearCookie("accessToken");
   res.clearCookie("refreshToken");
+  res.clearCookie("csrfToken");
 
   await redisClient.del(`user${userId}`);
 
   return res.json({ message: "the user is lougout successfuly " });
 };
+
+export const refreshCSRF = TryCatch(async (req, res) => {
+  const userId = req.user._id;
+  const newCSRFToken = generateCSRFToken(userId, res);
+
+  res.json({
+    message: "newCSRFToken is genereted successfully",
+    csrfToken: newCSRFToken,
+  });
+});
